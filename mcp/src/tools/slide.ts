@@ -13,7 +13,7 @@ const ARCHETYPES = ["cover", "agenda", "section-divider", "statement", "hero-met
 
 const slideAdd = (): ToolDef => ({
   name: "slide_add",
-  description: "Add a slide from one of the 24 archetypes or from explicit objects.",
+  description: "Add a slide from one of the 24 archetypes or from explicit objects. Supports per-slide transition and motion sequence.",
   inputSchema: S({
     type: z.enum(ARCHETYPES).optional(),
     title: z.string().optional(),
@@ -24,6 +24,8 @@ const slideAdd = (): ToolDef => ({
     id: z.string().optional(),
     tier: z.string().optional(),
     section: z.string().optional(),
+    transition: z.object({}).passthrough().optional(),
+    motion: z.object({}).passthrough().optional(),
   }),
   handler: (args) => {
     const s = sessionOf({ sessions }, args);
@@ -39,6 +41,8 @@ const slideAdd = (): ToolDef => ({
       objects: [],
       grid: { cols: 12, rows: 8, margin: s.spec.tokens?.grid?.margin ?? 0.5, gutter: s.spec.tokens?.grid?.gutter ?? 0.2 },
       notes: "",
+      transition: args.transition,
+      motion: args.motion,
     };
     const params = { ...(args.params ?? {}), title: args.title ?? args.params?.title };
     slide.objects = (args.objects?.length ? args.objects : composeArchetype(s.spec, slide, type, params)) as any;

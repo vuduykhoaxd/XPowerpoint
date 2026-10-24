@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────────────────────────
+// Domain types
+// ─────────────────────────────────────────────────────────────
+
 export type Band = "bg" | "deco" | "content" | "data" | "ui" | "note" | "edit-source";
 
 export interface Geometry {
@@ -115,6 +119,10 @@ export interface Brief {
   assumptions?: string[];
   outline?: any[];
   approved?: boolean;
+  /** Chủ đề deck (dùng cho elicitation & research) */
+  topic?: string;
+  /** Có áp dụng transition/animation bằng COM hay không */
+  useEffects?: boolean;
   [key: string]: any;
 }
 
@@ -153,6 +161,10 @@ export interface DeckSession {
   warnings: string[];
 }
 
+// ─────────────────────────────────────────────────────────────
+// Tool / MCP types
+// ─────────────────────────────────────────────────────────────
+
 export interface ToolResult {
   ok: boolean;
   data?: any;
@@ -161,8 +173,35 @@ export interface ToolResult {
   error?: { code: string; message: string; next_action?: string; details?: any };
 }
 
+/**
+ * Payload gửi tới client khi server cần hỏi thêm thông tin (MCP Elicitation).
+ * Tương thích với `ElicitRequestSchema` của @modelcontextprotocol/sdk.
+ */
+export interface ElicitParams {
+  message: string;
+  requestedSchema: Record<string, any>;
+}
+
+/**
+ * Kết quả client trả về sau khi người dùng phản hồi elicitation.
+ * - accept  : người dùng đã cung cấp dữ liệu (content là object).
+ * - decline : người dùng từ chối trả lời.
+ * - cancel  : người dùng huỷ bỏ.
+ */
+export interface ElicitResult {
+  action: "accept" | "decline" | "cancel";
+  content?: Record<string, any>;
+}
+
 export interface ToolContext {
   sessions: import("./session.js").SessionStore;
+  /**
+   * Hàm elicit (MCP).
+   * - Nếu SDK/client hỗ trợ: server sẽ dùng hàm này để hỏi người dùng.
+   * - Nếu không hỗ trợ: handler phải tự fallback (ghi assumptions hoặc dùng
+   *   giá trị mặc định), không được throw để tránh crash pipeline.
+   */
+  elicit?: (params: ElicitParams) => Promise<ElicitResult | null>;
 }
 
 export interface ToolDef {

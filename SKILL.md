@@ -1,45 +1,14 @@
----
-name: xpowerpoint
-description: Full-control PowerPoint generation suite. Use when creating or editing
-  a presentation from 8 objects/slide up to 150+ objects/slide, including transitions,
-  animations, media, charts, diagrams, fonts, internet assets, OOXML surgery, and
-  an editable/flat handoff. Router skill: read this first, then load only the
-  sub-skill routed below.
----
 
-# XPowerpoint — router
+**Pipeline rules (v2.1.0):**
 
-Three strictly separated layers:
-
-```
-Skill (knowledge) -> MCP (tools) -> Engine (execution)
-```
-
-- `skill/` — knowledge, progressive disclosure. Read only what you need.
-- `mcp/` — MCP server, 196 tools, validate -> dispatch -> JSON summary.
-- `python/` — COM / python-pptx / OOXML bridge for Windows.
-
-## Non-negotiables
-
-1. **No brief, no build.** Before the first slide: intake, then `brief_confirm`
-   with `approved:true` and an explicit `slideCount`.
-2. **Ask for slide count.** If the user did not state it, ask. Never guess silently.
-   Use `minutes * 1.5 + 2` then adjust.
-3. **Ground truth comes from measurement**, not estimation. Text metrics, COM
-   bounds, render diff — never invent geometry at export time.
-4. **Gates are hard.** Do not export with layout violations, contrast failures,
-   unknown licenses, or editability < 80.
-5. **Content must stay editable.** Text as text, charts as charts, tables as tables.
-   Destructive craft lives in `deco/*` groups only.
-6. **Everything gets a name, a band, and alt text.** No anonymous shapes.
-7. Tools return compact JSON: `{ ok, data, warnings[], next_action }`.
-
-## Standard pipeline
-
-```
-intake -> brief -> research -> assets -> spec -> build -> measure -> validate
-       -> motion -> render -> visual verify -> export -> deliver
-```
+- **`intake`** is mandatory. It MUST elicit `topic`, `slideCount`, `useEffects` if
+  absent. It writes results into `brief`.
+- **`motion`** is MANDATORY when `useEffects=true` and COM is available. If the
+  build step finishes without calling `applyMotion`, the pipeline fails gate [5]
+  and must not export.
+- **`motion` fallback** (COM unavailable): write motion spec into
+  `brief.assumptions` + `notes`, warn the user, but do not claim the deck has
+  animation.
 
 Gate table: see `skill/xp-workflow/SKILL.md` §Gates.
 
@@ -83,9 +52,15 @@ Slide archetypes: `skill/xp-slide-types/types/*.md` (24 files).
 
 ## Stop conditions
 
-- No `slideCount` or `approved:false` -> **do not build**.
+- No `topic` OR no `slideCount` OR `useEffects` undefined -> **do not build**.
+  Elicit the missing value first.
+- `approved:false` -> **do not build**.
 - Gate [5]–[9] failing -> **do not export**.
-- COM unavailable -> never promise animation, morph, MP4, or 3D.
+- **COM available AND `useEffects = true` AND `applyMotion` not called -> do not
+  export.** Either call motion or explicitly downgrade `useEffects` to `false`
+  with user consent.
+- COM unavailable AND `useEffects = true` -> fallback: write motion spec into
+  speaker notes, warn the user, do not promise MP4/morph/animation.
 - License `unknown` -> never insert the asset into a commercial deck.
 - Fragment budget > 60/slide -> bake or split.
 - Editability < 80 -> run `handoff_cleanup` or report the gap.

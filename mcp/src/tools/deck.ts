@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { existsSync, readFileSync, writeFileSync, copyFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, copyFileSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import type { DeckSpec, ToolDef } from "../types.js";
 import { XPError, ok } from "../errors.js";
@@ -7,7 +7,7 @@ import { sessions } from "../session.js";
 import { defaultSpec, styleTokens } from "../tokens.js";
 import { S, sessionOf, deckSummary, slideSummary, assertApproved, nextSlideId, okData } from "./helpers.js";
 import { buildDeck } from "../engine/pptxgen/builder.js";
-import { readPptx } from "../engine/com/bridge.js";
+import { readPptx, applyMotion } from "../engine/com/bridge.js";
 import { outDir, safeName, ensureDir } from "../utils/paths.js";
 
 const deckNew = (): ToolDef => ({
@@ -26,9 +26,15 @@ const deckNew = (): ToolDef => ({
     if (args.size) session.spec.meta.size = args.size;
     if (args.spec?.slides && args.spec.meta) session.spec = { ...session.spec, ...args.spec };
     const brief = session.spec.brief;
-    const missing = !brief?.approved ? ["slideCount", "audience", "durationMin", "language", "output", "brand"].filter((k) => !brief || (brief as any)[k] === undefined) : [];
-    return okData({ ...deckSummary(session), missingBriefFields: missing, theme: styleTokens(style) },
-      [], brief?.approved ? null : "intake_questions");
+    const missing = !brief?.approved
+      ? ["topic", "slideCount", "useEffects", "audience", "durationMin", "language", "output", "brand"]
+          .filter((k) => !brief || (brief as any)[k] === undefined)
+      : [];
+    return okData(
+      { ...deckSummary(session), deckId: session.id, missingBriefFields: missing, theme: styleTokens(style) },
+      [],
+      brief?.approved ? null : "intake_questions",
+    );
   },
 });
 
@@ -50,7 +56,10 @@ const deckOpen = (): ToolDef => ({
     if (!r.ok) throw new XPError("E_COM_UNAVAILABLE", r.message ?? "python-pptx unavailable", r);
     const spec = specFromReader(r, p);
     const s = sessions.open(spec, p);
-    return okData({ ...deckSummary(s), readOnlyStructure: true, warning: "Imported structure is text/shape only; transitions/animation require COM inspection." }, r.warnings ?? []);
+    return okData(
+      { ...deckSummary(s), readOnlyStructure: true, warning: "Imported structure is text/shape only; transitions/animation require COM inspection." },
+      r.warnings ?? [],
+    );
   },
 });
 
@@ -72,11 +81,20 @@ function specFromReader(r: any, file: string): DeckSpec {
       return {
         id,
         type: text ? "text" : "shape",
-        band: "content", role: text ? "body" : "container",
+        band: "content" as const,
+        role: text ? "body" : "container",
         geometry: { x, y, w, h },
-        fill: null, line: null, effects: {},
-        text: text ? { value: text, fontSize: sh.fontSize ?? 16, color: "#111111", align: "left", valign: "top", margin: 0.04 } : null,
-        z: 20, decorative: false, altText: text ? text.slice(0, 120) : "Imported shape", locked: false, sourceRef: null,
+        fill: null,
+        line: null,
+        effects: {},
+        text: text
+          ? { value: text, fontSize: sh.fontSize ?? 16, color: "#111111", align: "left" as const, valign: "top" as const, margin: 0.04 }
+          : null,
+        z: 20,
+        decorative: false,
+        altText: text ? text.slice(0, 120) : "Imported shape",
+        locked: false,
+        sourceRef: null,
       };
     });
     return { id: `s${String(i + 1).padStart(2, "0")}`, type: "blank", objects, notes: sl.notes ?? "" };
@@ -86,7 +104,7 @@ function specFromReader(r: any, file: string): DeckSpec {
 
 const deckSave = (): ToolDef => ({
   name: "deck_save",
-  description: "Build and save the deck to pptx + spec JSON. Enforces brief approval.",
+  description: "Build and save the deck to pptx + spec JSON. Enforces brief approval. If brief.useEffects=true and COM is available, applies motion via PowerPoint.",
   inputSchema: S({ path: z.string().optional(), filename: z.string().optional(), specOnly: z.boolean().optional() }),
   handler: async (args) => {
     const session = sessionOf({ sessions }, args);
@@ -99,12 +117,44 @@ const deckSave = (): ToolDef => ({
     }
     const base = args.filename ?? session.spec.meta.title ?? "deck";
     const dir = args.path ? ensureDir(path.dirname(path.resolve(args.path))) : outDir("decks");
-    const r = await buildDeck(session.spec, dir, base);
+    const r: any = await buildDeck(session.spec, dir, base);
     if (args.path) {
       const target = path.resolve(args.path);
       if (target !== r.file) copyFileSync(r.file, target);
       r.file = target;
     }
+
+    // ===== AUTO-MOTION =====
+    const brief: any = session.spec.brief ?? {};
+    if (brief.useEffects === true) {
+      const motionSlides = session.spec.slides
+        .map((sl: any, idx: number) => ({
+          slideIndex: idx + 1,
+          transition: sl.transition ?? { type: "fade", duration: 0.6 },
+          sequence: sl.motion?.sequence ?? [],
+        }))
+        .filter((m: any) => m.transition || (m.sequence && m.sequence.length > 0));
+
+      if (motionSlides.length > 0) {
+        const tmpOut = r.file.replace(/\.pptx$/, "_with_motion.pptx");
+        const motionResult: any = await applyMotion(r.file, motionSlides, tmpOut);
+        if (motionResult.stderr) console.error("[motion stderr]", motionResult.stderr);
+        if (motionResult.ok && existsSync(tmpOut)) {
+          copyFileSync(tmpOut, r.file);
+          try { unlinkSync(tmpOut); } catch {}
+          r.warnings = [...(r.warnings ?? []), `Animation applied to ${motionSlides.length} slide(s).`];
+        } else {
+          r.warnings = [...(r.warnings ?? []), `Animation skipped: ${motionResult.message ?? motionResult.code ?? "unknown"}`];
+        }
+        if (motionResult.failures?.length) {
+          r.warnings = [...(r.warnings ?? []), `Animation partial: ${motionResult.failures.join("; ")}`];
+        }
+      } else {
+        r.warnings = [...(r.warnings ?? []), "useEffects=true but no motion spec found on slides; nothing to animate."];
+      }
+    }
+    // ===== END AUTO-MOTION =====
+
     session.filePath = r.file;
     session.dirty = false;
     return okData({ ...r, ...deckSummary(session) }, r.warnings);
@@ -121,8 +171,33 @@ const deckSaveAs = (): ToolDef => ({
     const target = path.resolve(args.path);
     ensureDir(path.dirname(target));
     const base = args.filename ?? path.basename(target, path.extname(target));
-    const r = await buildDeck(session.spec, path.dirname(target), base);
+    const r: any = await buildDeck(session.spec, path.dirname(target), base);
     if (r.file !== target) copyFileSync(r.file, target);
+
+    // ===== AUTO-MOTION =====
+    const brief: any = session.spec.brief ?? {};
+    if (brief.useEffects === true) {
+      const motionSlides = session.spec.slides
+        .map((sl: any, idx: number) => ({
+          slideIndex: idx + 1,
+          transition: sl.transition ?? { type: "fade", duration: 0.6 },
+          sequence: sl.motion?.sequence ?? [],
+        }))
+        .filter((m: any) => m.transition || (m.sequence && m.sequence.length > 0));
+
+      if (motionSlides.length > 0) {
+        const tmpOut = target.replace(/\.pptx$/, "_with_motion.pptx");
+        const motionResult: any = await applyMotion(target, motionSlides, tmpOut);
+        if (motionResult.stderr) console.error("[motion stderr]", motionResult.stderr);
+        if (motionResult.ok && existsSync(tmpOut)) {
+          copyFileSync(tmpOut, target);
+          try { unlinkSync(tmpOut); } catch {}
+          r.warnings = [...(r.warnings ?? []), `Animation applied to ${motionSlides.length} slide(s).`];
+        }
+      }
+    }
+    // ===== END AUTO-MOTION =====
+
     session.filePath = target;
     return okData({ file: target, specFile: r.specFile, slides: r.slides, objects: r.objects }, r.warnings);
   },
@@ -148,7 +223,13 @@ const deckInfo = (): ToolDef => ({
     const s = sessionOf({ sessions }, args);
     const fonts = new Set<string>();
     s.spec.slides.forEach((sl) => sl.objects.forEach((o) => { if (o.text?.fontFamily) fonts.add(o.text.fontFamily); }));
-    return okData({ ...deckSummary(s), sections: s.spec.sections ?? [], customShows: s.spec.customShows ?? [], fonts: [...fonts], slides: s.spec.slides.map(slideSummary) });
+    return okData({
+      ...deckSummary(s),
+      sections: s.spec.sections ?? [],
+      customShows: s.spec.customShows ?? [],
+      fonts: [...fonts],
+      slides: s.spec.slides.map(slideSummary),
+    });
   },
 });
 
@@ -189,8 +270,14 @@ const deckCustomShows = (): ToolDef => ({
   handler: (args) => {
     const s = sessionOf({ sessions }, args);
     s.spec.customShows ??= [];
-    if (args.action === "set") sessions.mutate(s, () => { s.spec.customShows = [...(s.spec.customShows ?? []).filter((x: any) => x.name !== args.name), { name: args.name, slides: args.slides ?? [] }]; });
-    if (args.action === "remove") sessions.mutate(s, () => { s.spec.customShows = (s.spec.customShows ?? []).filter((x: any) => x.name !== args.name); });
+    if (args.action === "set") {
+      sessions.mutate(s, () => {
+        s.spec.customShows = [...(s.spec.customShows ?? []).filter((x: any) => x.name !== args.name), { name: args.name, slides: args.slides ?? [] }];
+      });
+    }
+    if (args.action === "remove") {
+      sessions.mutate(s, () => { s.spec.customShows = (s.spec.customShows ?? []).filter((x: any) => x.name !== args.name); });
+    }
     return okData({ customShows: s.spec.customShows });
   },
 });
@@ -223,7 +310,10 @@ const deckSplit = (): ToolDef => ({
   handler: (args) => {
     const source = sessionOf({ sessions }, args);
     const spec = JSON.parse(JSON.stringify(source.spec)) as DeckSpec;
-    spec.slides = (args.pages ?? []).map((n: number) => source.spec.slides[n - 1]).filter(Boolean).map((sl: any) => JSON.parse(JSON.stringify(sl)));
+    spec.slides = (args.pages ?? [])
+      .map((n: number) => source.spec.slides[n - 1])
+      .filter(Boolean)
+      .map((sl: any) => JSON.parse(JSON.stringify(sl)));
     spec.meta.title = args.title ?? `${source.spec.meta.title} (split)`;
     spec.brief = { ...(spec.brief ?? {}), slideCount: spec.slides.length };
     const s = sessions.create(spec, spec.meta.title);
@@ -254,7 +344,7 @@ const deckCompare = (): ToolDef => ({
 
 const intakeQuestions = (): ToolDef => ({
   name: "intake_questions",
-  description: "Always returns the mandatory slide-count question plus any missing brief fields.",
+  description: "Always returns the mandatory slide-count question plus any missing brief fields, including topic and useEffects.",
   inputSchema: S({ brief: z.object({}).passthrough().optional(), known: z.object({}).passthrough().optional() }),
   handler: (args) => {
     const brief = args.brief ?? args.known ?? {};
@@ -270,6 +360,18 @@ const intakeQuestions = (): ToolDef => ({
       ],
       formula: "slides ≈ phút × 1.5 + 2",
     });
+    if (!brief.topic) q.push({
+      id: "topic", required: true,
+      question: "Deck này nói về chủ đề gì? (càng cụ thể càng tốt)",
+    });
+    if (brief.useEffects === undefined) q.push({
+      id: "useEffects", required: true,
+      question: "Bạn có muốn thêm hiệu ứng (transition/animation) không?",
+      options: [
+        { label: "Có — có PowerPoint, dùng COM", value: true },
+        { label: "Không — chỉ cần slide tĩnh", value: false },
+      ],
+    });
     if (!brief.goal) q.push({ id: "goal", required: true, question: "Mục đích của deck là gì?" });
     if (!brief.audience) q.push({ id: "audience", required: true, question: "Người nghe là ai?" });
     if (!brief.durationMin) q.push({ id: "durationMin", required: true, question: "Thời lượng trình bày bao nhiêu phút?" });
@@ -277,7 +379,11 @@ const intakeQuestions = (): ToolDef => ({
     if (!brief.output) q.push({ id: "output", required: true, question: "Cần output gì?", options: [{ label: "pptx + pdf", value: ["pptx", "pdf"] }, { label: "pptx editable", value: ["pptx"] }, { label: "png", value: ["png"] }, { label: "mp4", value: ["mp4"] }] });
     if (brief.brand === undefined) q.push({ id: "brand", required: true, question: "Có brand (màu/font/logo) hay để tự do?" });
     if (brief.mustHave === undefined) q.push({ id: "mustHave", required: false, question: "Nội dung bắt buộc phải có?" });
-    return okData({ questions: q, mandatory: q.filter((x) => x.required).map((x) => x.id), note: "Ask once, grouped. Do not build before slideCount + approved:true." });
+    return okData({
+      questions: q,
+      mandatory: q.filter((x) => x.required).map((x) => x.id),
+      note: "Ask once, grouped. Do not build before slideCount + topic + useEffects + approved:true.",
+    });
   },
 });
 
@@ -290,22 +396,40 @@ const briefSet = (): ToolDef => ({
     const incoming = args.brief ?? {};
     if (incoming.slideCount && !incoming.slideCountSource) incoming.slideCountSource = "user";
     sessions.mutate(s, () => {
-      s.spec.brief = { ...(s.spec.brief ?? {}), ...incoming, assumptions: [...(s.spec.brief?.assumptions ?? []), ...(args.assumptions ?? [])], approved: incoming.approved === true ? true : false };
+      s.spec.brief = {
+        ...(s.spec.brief ?? {}),
+        ...incoming,
+        assumptions: [...(s.spec.brief?.assumptions ?? []), ...(args.assumptions ?? [])],
+        approved: incoming.approved === true ? true : false,
+      };
     });
     const brief = s.spec.brief!;
-    const missing = ["goal", "slideCount", "language", "output"].filter((k) => (brief as any)[k] === undefined || (brief as any)[k] === null);
-    return okData({ brief, missing, readyToApprove: missing.length === 0 && Boolean(brief.slideCount) }, [], missing.length ? "brief_set" : "brief_confirm");
+    const missing = ["topic", "slideCount", "language", "output", "useEffects"]
+      .filter((k) => (brief as any)[k] === undefined || (brief as any)[k] === null);
+    return okData(
+      { brief, missing, readyToApprove: missing.length === 0 && Boolean(brief.slideCount) },
+      [],
+      missing.length ? "brief_set" : "brief_confirm",
+    );
   },
 });
 
 const briefConfirm = (): ToolDef => ({
   name: "brief_confirm",
-  description: "Approve the brief. Requires slideCount > 0.",
+  description: "Approve the brief. Requires slideCount > 0, topic, and useEffects defined.",
   inputSchema: S({ approved: z.boolean().optional() }),
   handler: (args) => {
     const s = sessionOf({ sessions }, args);
-    const b = s.spec.brief ?? {};
-    if (!b.slideCount || b.slideCount < 1) throw new XPError("E_BRIEF", "Cannot approve: slideCount is missing. Ask the user first.");
+    const b: any = s.spec.brief ?? {};
+    if (!b.slideCount || b.slideCount < 1) {
+      throw new XPError("E_BRIEF", "Cannot approve: slideCount is missing. Ask the user first.");
+    }
+    if (!b.topic) {
+      throw new XPError("E_BRIEF", "Cannot approve: topic is missing. Ask the user first.");
+    }
+    if (b.useEffects === undefined) {
+      throw new XPError("E_BRIEF", "Cannot approve: useEffects is undefined. Ask the user first.");
+    }
     sessions.mutate(s, () => { s.spec.brief = { ...b, approved: true }; });
     return okData({ brief: s.spec.brief, next: "deck_new or slide_add" });
   },
@@ -317,8 +441,9 @@ const briefGet = (): ToolDef => ({
   inputSchema: S({}),
   handler: (args) => {
     const s = sessionOf({ sessions }, args);
-    const b = s.spec.brief ?? {};
-    const missing = ["goal", "audience", "durationMin", "slideCount", "language", "output", "brand"].filter((k) => (b as any)[k] === undefined || (b as any)[k] === null);
+    const b: any = s.spec.brief ?? {};
+    const missing = ["topic", "goal", "audience", "durationMin", "slideCount", "language", "output", "brand", "useEffects"]
+      .filter((k) => b[k] === undefined || b[k] === null);
     return okData({ brief: b, missing, approved: b.approved === true });
   },
 });

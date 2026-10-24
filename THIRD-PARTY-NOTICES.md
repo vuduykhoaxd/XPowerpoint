@@ -8,8 +8,21 @@
 | python-pptx | MIT | Deck reading/editing |
 | lxml | BSD-3-Clause | OOXML patching |
 | Pillow | HPND | Image processing |
-| @modelcontextprotocol/sdk | MIT | MCP transport |
+| @modelcontextprotocol/sdk | MIT | MCP transport (elicitation, tools) |
 | Zod | MIT | Tool input validation |
+| comtypes | MIT | Windows COM bridge for PowerPoint animation/transition (required for motion when COM is available) |
+
+## Behavior contracts (v2.1.0)
+
+- **MCP Elicitation is required** for missing `topic`, `slideCount`, or `useEffects`.
+  If the MCP client does not support elicitation, the server records assumptions in
+  `brief.assumptions` instead of guessing silently.
+- **Animation is mandatory** when `brief.useEffects = true` and COM is available.
+  The build pipeline calls `applyMotion` (via `com_motion.py`) before export.
+  If COM is unavailable, motion is written as a spec and noted in warnings; it must
+  not be silently dropped.
+- **No build without an approved brief**: `brief_confirm` rejects approval when
+  `slideCount`, `topic`, or `useEffects` is missing.
 
 ## Fonts
 
