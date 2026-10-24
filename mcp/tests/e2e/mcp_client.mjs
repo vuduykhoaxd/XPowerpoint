@@ -11,7 +11,7 @@ const transport = new StdioClientTransport({
   args: [serverPath],
   env: { ...process.env, PYTHONIOENCODING: "utf-8" },
 });
-const client = new Client({ name: "xp-smoke", version: "1.0.0" }, { capabilities: {} });
+const client = new Client({ name: "xp-smoke", version: "2.0.0" }, { capabilities: {} });
 await client.connect(transport);
 
 let failures = 0;

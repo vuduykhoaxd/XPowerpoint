@@ -5,7 +5,7 @@ import { sessions } from "./session.js";
 import type { ToolContext, ToolResult } from "./types.js";
 import { XPError, fail } from "./errors.js";
 
-const server = new McpServer({ name: "xpowerpoint", version: "1.0.0" });
+const server = new McpServer({ name: "xpowerpoint", version: "2.0.0" });
 const ctx: ToolContext = { sessions };
 
 function toolResult(result: ToolResult) {
