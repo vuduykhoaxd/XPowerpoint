@@ -16,10 +16,9 @@ transition, animation, chart, diagram, font, asset có license, và bản giao _
 
 ## 📦 Quick Start (Windows)
 
-```powershell
-# 1 click (or run steps individually)
-.\1ClickSetup.bat
-```
+~~powershell~~
+~~# -1 click (or run steps individually)-~~
+~~.\1ClickSetup.bat~~
 
 Or manually:
 
@@ -52,10 +51,9 @@ node mcp/bin/server.mjs
 
 ## 📦 Khởi động nhanh (Windows)
 
-```powershell
-# 1 click (hoặc chạy từng bước)
-.\1ClickSetup.bat
-```
+~~powershell~~
+~~# 1 click (hoặc chạy từng bước)~~
+~~.\1ClickSetup.bat~~
 
 Hoặc thủ công:
 
