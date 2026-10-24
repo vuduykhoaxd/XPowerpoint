@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xpowerpoint.local/schemas/editability-report.schema.json",
+  "title": "EditabilityReport",
+  "type": "object",
+  "required": ["score", "pass", "criteria"],
+  "properties": {
+    "score": { "type": "number", "minimum": 0, "maximum": 100 },
+    "pass": { "type": "boolean" },
+    "gate": { "type": "number", "default": 80 },
+    "criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "max": { "type": "number" },
+          "score": { "type": "number" },
+          "issues": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slideId": { "type": "string" },
+          "objectId": { "type": "string" },
+          "code": { "type": "string" },
+          "fix": { "type": "string" }
+        }
+      }
+    }
+  }
+}

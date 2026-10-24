@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xpowerpoint.local/schemas/qa-report.schema.json",
+  "title": "QAReport",
+  "type": "object",
+  "required": ["ok", "gates"],
+  "properties": {
+    "ok": { "type": "boolean" },
+    "generatedAt": { "type": "string" },
+    "deckId": { "type": "string" },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "pass"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "pass": { "type": "boolean" },
+          "score": { "type": "number" },
+          "threshold": { "type": "number" },
+          "details": { "type": "object" }
+        }
+      }
+    },
+    "blockers": { "type": "array", "items": { "type": "object" } },
+    "warnings": { "type": "array", "items": { "type": "object" } },
+    "render": { "type": "object" },
+    "licenses": { "type": "array", "items": { "$ref": "asset.schema.json" } },
+    "editability": { "$ref": "editability-report.schema.json" }
+  }
+}

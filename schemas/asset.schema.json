@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xpowerpoint.local/schemas/asset.schema.json",
+  "title": "Asset",
+  "type": "object",
+  "required": ["id", "kind", "path", "license"],
+  "properties": {
+    "id": { "type": "string" },
+    "kind": { "enum": ["image", "icon", "illustration", "video", "audio", "font", "template", "texture"] },
+    "path": { "type": "string" },
+    "name": { "type": "string" },
+    "mime": { "type": "string" },
+    "width": { "type": "number" },
+    "height": { "type": "number" },
+    "bytes": { "type": "number" },
+    "hash": { "type": "string" },
+    "license": { "enum": ["CC0", "public-domain", "CC-BY", "CC-BY-SA", "CC-BY-NC", "OFL", "MIT", "Apache-2.0", "commercial-ok", "unknown"] },
+    "attribution": { "type": "string" },
+    "author": { "type": "string" },
+    "sourceUrl": { "type": "string" },
+    "retrievedAt": { "type": "string" },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "altText": { "type": "string" },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

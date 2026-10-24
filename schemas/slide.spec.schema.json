@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xpowerpoint.local/schemas/slide.spec.schema.json",
+  "title": "SlideSpec",
+  "type": "object",
+  "required": ["id", "objects"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^s[0-9A-Za-z_-]+$" },
+    "type": {
+      "enum": ["cover", "agenda", "section-divider", "statement", "hero-metric", "kpi-dashboard",
+        "card-grid", "comparison", "matrix-2x2", "process", "timeline", "roadmap", "funnel",
+        "hierarchy", "text-and-bullets", "image-and-text", "full-bleed-image", "quote",
+        "data-table", "chart-focus", "diagram-system", "map", "before-after", "conclusion-cta", "blank"]
+    },
+    "tier": { "enum": ["T1", "T2", "T3", "T4", "T5"] },
+    "name": { "type": "string" },
+    "hidden": { "type": "boolean", "default": false },
+    "section": { "type": ["string", "null"] },
+    "background": {
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["solid", "gradient", "image", "pattern", "none"] },
+        "color": { "type": "string" },
+        "stops": { "type": "array", "items": { "type": "array" } },
+        "angle": { "type": "number" },
+        "assetId": { "type": "string" },
+        "path": { "type": "string" },
+        "overlay": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "grid": {
+      "type": "object",
+      "properties": {
+        "cols": { "type": "integer", "default": 12 },
+        "rows": { "type": "integer", "default": 8 },
+        "margin": { "type": "number", "default": 0.5 },
+        "gutter": { "type": "number", "default": 0.2 }
+      }
+    },
+    "objects": { "type": "array", "items": { "$ref": "object.spec.schema.json" } },
+    "motion": { "$ref": "motion.spec.schema.json" },
+    "notes": { "type": "string" },
+    "transition": { "type": "object" }
+  },
+  "additionalProperties": true
+}

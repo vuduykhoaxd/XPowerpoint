@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xpowerpoint.local/schemas/motion.spec.schema.json",
+  "title": "MotionSpec",
+  "type": "object",
+  "properties": {
+    "transition": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": ["none", "fade", "morph", "push", "wipe", "split", "uncover", "cover", "zoom",
+            "pan", "gallery", "cube", "flip", "honeycomb", "glitter", "vortex", "shred",
+            "switch", "ferris", "conveyor", "origami", "dissolve", "ripple", "prestige",
+            "random-bars", "curtain", "doors", "window", "wheel-reverse", "blinds", "checkerboard"]
+        },
+        "direction": { "enum": ["left", "right", "up", "down", "in", "out", "horizontal", "vertical"] },
+        "duration": { "type": "number", "minimum": 0 },
+        "speed": { "enum": ["slow", "medium", "fast"] },
+        "advanceOnClick": { "type": "boolean" },
+        "advanceAfter": { "type": "number", "minimum": 0 },
+        "sound": { "type": ["string", "null"] }
+      }
+    },
+    "sequence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["target", "effect"],
+        "properties": {
+          "target": { "type": "string" },
+          "effect": { "type": "string" },
+          "kind": { "enum": ["entrance", "emphasis", "exit", "motion-path"] },
+          "start": { "enum": ["on-click", "with-previous", "after-previous"] },
+          "delay": { "type": "number" },
+          "duration": { "type": "number" },
+          "stagger": { "type": "number" },
+          "direction": { "type": "string" },
+          "repeat": { "type": ["number", "string"] },
+          "path": { "type": "object" },
+          "trigger": { "type": "string" }
+        }
+      }
+    },
+    "trigger": { "type": "object" },
+    "settings": { "type": "object" }
+  },
+  "additionalProperties": true
+}

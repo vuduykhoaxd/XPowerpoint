@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xpowerpoint.local/schemas/tokens.schema.json",
+  "title": "DesignTokens",
+  "type": "object",
+  "properties": {
+    "style": { "type": "string" },
+    "color": {
+      "type": "object",
+      "properties": {
+        "bg": { "type": "string" },
+        "surface": { "type": "string" },
+        "text": { "type": "string" },
+        "muted": { "type": "string" },
+        "primary": { "type": "string" },
+        "secondary": { "type": "string" },
+        "accent": { "type": "string" },
+        "line": { "type": "string" },
+        "ok": { "type": "string" },
+        "warn": { "type": "string" },
+        "bad": { "type": "string" }
+      },
+      "additionalProperties": { "type": "string" }
+    },
+    "font": {
+      "type": "object",
+      "properties": {
+        "display": { "type": "string" },
+        "heading": { "type": "string" },
+        "body": { "type": "string" },
+        "mono": { "type": "string" },
+        "fallback": { "type": "string" }
+      }
+    },
+    "scale": {
+      "type": "object",
+      "properties": {
+        "display": { "type": "number" },
+        "h1": { "type": "number" },
+        "h2": { "type": "number" },
+        "body": { "type": "number" },
+        "label": { "type": "number" },
+        "caption": { "type": "number" }
+      }
+    },
+    "space": { "type": "object", "additionalProperties": { "type": "number" } },
+    "radius": { "type": "object", "additionalProperties": { "type": "number" } },
+    "shadow": { "type": "object", "additionalProperties": { "type": "object" } },
+    "grid": { "type": "object" }
+  },
+  "additionalProperties": true
+}

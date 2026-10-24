@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xpowerpoint.local/schemas/layout-report.schema.json",
+  "title": "LayoutReport",
+  "type": "object",
+  "required": ["ok", "violations"],
+  "properties": {
+    "ok": { "type": "boolean" },
+    "slideCount": { "type": "integer" },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "slideId"],
+        "properties": {
+          "code": { "enum": ["E_OVERFLOW", "E_OVERLAP", "E_GEOMETRY", "E_MARGIN", "E_OCCUPANCY", "E_BUDGET"] },
+          "slideId": { "type": "string" },
+          "objectId": { "type": "string" },
+          "otherId": { "type": "string" },
+          "severity": { "enum": ["blocker", "major", "minor"] },
+          "message": { "type": "string" },
+          "metrics": { "type": "object" }
+        }
+      }
+    },
+    "slides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slideId": { "type": "string" },
+          "occupancy": { "type": "number" },
+          "objectCount": { "type": "integer" },
+          "safeAreaOk": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

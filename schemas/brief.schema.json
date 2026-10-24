@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xpowerpoint.local/schemas/brief.schema.json",
+  "title": "Brief",
+  "type": "object",
+  "required": ["goal", "slideCount", "language", "output", "approved"],
+  "properties": {
+    "goal": { "type": "string" },
+    "audience": { "type": "string" },
+    "durationMin": { "type": "number", "minimum": 1 },
+    "slideCount": { "type": "integer", "minimum": 1, "maximum": 500 },
+    "slideCountSource": { "enum": ["user", "estimated", "default"] },
+    "language": { "type": "string", "default": "vi" },
+    "mustHave": { "type": "array", "items": { "type": "string" } },
+    "tone": { "type": "string" },
+    "style": { "type": "string" },
+    "brand": { "type": ["object", "null"] },
+    "output": { "type": "array", "minItems": 1, "items": { "enum": ["pptx", "pdf", "png", "jpg", "mp4", "gif", "handout"] } },
+    "editability": { "enum": ["required", "preferred", "not-required"] },
+    "motion": { "enum": ["none", "light", "full"] },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "outline": { "type": "array", "items": { "type": "object" } },
+    "approved": { "type": "boolean", "default": false }
+  },
+  "additionalProperties": true
+}
