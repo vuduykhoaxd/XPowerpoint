@@ -1,4 +1,4 @@
-# XPowerpoint v2.0.0
+# XPowerpoint v2.1.0
 
 Full-control PowerPoint skill suite: 32 skills, an MCP server with 196 tools, and a
 Windows COM / python-pptx / OOXML engine. Builds anything from an 8-object cover to a
@@ -6,7 +6,7 @@ Windows COM / python-pptx / OOXML engine. Builds anything from an 8-object cover
 assets, and an editable + flat handoff.
 
 ---
-# XPowerpoint v2.0.0
+# XPowerpoint v2.1.0
 
 Bộ kỹ năng PowerPoint toàn quyền: 32 skills, MCP server 196 tools, engine Windows COM /
 python-pptx / OOXML. Xây dựng mọi thứ từ cover 8 object đến dashboard 150+ object, có
