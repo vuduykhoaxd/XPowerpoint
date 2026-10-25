@@ -30,6 +30,203 @@ function chartType(pptx: any, type: string) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// HELPERS: FILL & LINE BUILDERS (Gradient & Transparency)
+// ─────────────────────────────────────────────────────────────
+
+function buildFill(fill: any, fallbackColor = "E8EDF5"): any {
+  if (!fill) return { color: fallbackColor };
+  if (fill.type === "none") return { type: "none" };
+  
+  if (fill.type === "gradient" && fill.stops) {
+    return {
+      type: "gradient",
+      stops: fill.stops.map((s: [string, number]) => ({
+        position: s[1],
+        color: hex(s[0])
+      })),
+      angle: fill.angle ?? 90,
+    };
+  }
+  
+  const color = hex(fill.color, fallbackColor);
+  const opacity = fill.alpha !== undefined ? fill.alpha : 100;
+  const transparency = 100 - opacity;
+  
+  return { color, transparency: transparency > 0 ? transparency : undefined };
+}
+
+function buildLine(line: any): any {
+  if (!line || line.type === "none") return { type: "none" };
+  
+  const color = hex(line.color, "000000");
+  const width = line.width ?? 1;
+  const dashType = line.dash ?? "solid";
+  const transparency = line.alpha !== undefined ? 100 - line.alpha : undefined;
+  
+  const opt: any = { color, width, dashType, transparency };
+  
+  if (line.beginArrow) opt.beginArrowType = line.beginArrow;
+  if (line.endArrow) opt.endArrowType = line.endArrow;
+  
+  return opt;
+}
+
+// ─────────────────────────────────────────────────────────────
+// SHAPE MAPPING (100+ SHAPES)
+// ─────────────────────────────────────────────────────────────
+
+function shapeOf(pptx: any, shape: string) {
+  const S = pptx.ShapeType;
+  const key = (shape || "").toLowerCase();
+  
+  switch (key) {
+    // 1. Basic Shapes
+    case "rect": case "rectangle": return S.rect;
+    case "roundrect": return S.roundRect;
+    case "ellipse": case "circle": case "oval": return S.ellipse;
+    case "triangle": return S.triangle;
+    case "rtriangle": case "righttriangle": return S.rtTriangle;
+    case "diamond": return S.diamond;
+    case "parallelogram": return S.parallelogram;
+    case "trapezoid": return S.trapezoid;
+    case "pentagon": return S.pentagon;
+    case "hexagon": return S.hexagon;
+    case "heptagon": return S.heptagon;
+    case "octagon": return S.octagon;
+    case "decagon": return S.decagon;
+    case "dodecagon": return S.dodecagon;
+    case "line": return S.line;
+    case "plaque": return S.plaque;
+    case "can": return S.can;
+    case "cube": return S.cube;
+    case "bevel": return S.bevel;
+    case "donut": return S.donut;
+    case "noSmoking": return S.noSmoking;
+    case "blockArc": return S.blockArc;
+    case "foldedCorner": return S.foldedCorner;
+    case "smileyFace": return S.smileyFace;
+    case "heart": return S.heart;
+    case "sun": return S.sun;
+    case "moon": return S.moon;
+    case "cloud": return S.cloud;
+    case "teardrop": return S.teardrop;
+
+    // 2. Stars & Banners
+    case "star4": return S.star4;
+    case "star5": return S.star5;
+    case "star6": return S.star6;
+    case "star7": return S.star7;
+    case "star8": return S.star8;
+    case "star10": return S.star10;
+    case "star12": return S.star12;
+    case "star16": return S.star16;
+    case "star24": return S.star24;
+    case "star32": return S.star32;
+    case "ribbon": return S.ribbon;
+    case "ribbon2": return S.ribbon2;
+    case "wave": return S.wave;
+    case "doubleWave": return S.doubleWave;
+
+    // 3. Arrows (Right)
+    case "rightarrow": case "arrow": return S.rightArrow;
+    case "leftarrow": return S.leftArrow;
+    case "uparrow": return S.upArrow;
+    case "downarrow": return S.downArrow;
+    case "leftrightarrow": return S.leftRightArrow;
+    case "updownarrow": return S.upDownArrow;
+    case "quadarrow": return S.quadArrow;
+    case "bentarrow": return S.bentArrow;
+    case "uturnarrow": return S.uturnArrow;
+    case "chevron": return S.chevron;
+    case "notchedrightarrow": return S.notchedRightArrow;
+    case "stripedrightarrow": return S.stripedRightArrow;
+    case "circulararrow": return S.circularArrow;
+    case "curvedrightarrow": return S.curvedRightArrow;
+    case "curvedleftarrow": return S.curvedLeftArrow;
+    case "curveduparrow": return S.curvedUpArrow;
+    case "curveddownarrow": return S.curvedDownArrow;
+
+    // 4. Callouts
+    case "wedgerectcallout": return S.wedgeRectCallout;
+    case "wedgeroundrectcallout": return S.wedgeRoundRectCallout;
+    case "wedgeellipsecallout": return S.wedgeEllipseCallout;
+    case "cloudcallout": return S.cloudCallout;
+
+    // 5. Flowchart Shapes
+    case "flowchartprocess": return S.flowChartProcess;
+    case "flowchartdecision": return S.flowChartDecision;
+    case "flowchartdata": return S.flowChartData;
+    case "flowchartpredefinedprocess": return S.flowChartPredefinedProcess;
+    case "flowchartinternalstorage": return S.flowChartInternalStorage;
+    case "flowchartdocument": return S.flowChartDocument;
+    case "flowchartmultidocument": return S.flowChartMultidocument;
+    case "flowchartterminator": return S.flowChartTerminator;
+    case "flowchartpreparation": return S.flowChartPreparation;
+    case "flowchartmanualinput": return S.flowChartManualInput;
+    case "flowchartmanualoperation": return S.flowChartManualOperation;
+    case "flowchartconnector": return S.flowChartConnector;
+    case "flowchartoffpageconnector": return S.flowChartOffpageConnector;
+    case "flowchartpunchedcard": return S.flowChartPunchedCard;
+    case "flowchartpunchedtape": return S.flowChartPunchedTape;
+    case "flowchartsummingjunction": return S.flowChartSummingJunction;
+    case "flowchartor": return S.flowChartOr;
+    case "flowchartcollate": return S.flowChartCollate;
+    case "flowchartsort": return S.flowChartSort;
+    case "flowchartextract": return S.flowChartExtract;
+    case "flowchartmerge": return S.flowChartMerge;
+    case "flowchartonlinestorage": return S.flowChartOnlineStorage;
+    case "flowchartdelay": return S.flowChartDelay;
+    case "flowchartsequentialaccessstorage": return S.flowChartSequentialAccessStorage;
+    case "flowchartmagneticdisk": return S.flowChartMagneticDisk;
+    case "flowchartdirectaccessstorage": return S.flowChartDirectAccessStorage;
+    case "flowchartdisplay": return S.flowChartDisplay;
+
+    // 6. Connectors
+    case "straightconnector1": return S.straightConnector1;
+    case "bentconnector2": return S.bentConnector2;
+    case "bentconnector3": return S.bentConnector3;
+    case "bentconnector4": return S.bentConnector4;
+    case "bentconnector5": return S.bentConnector5;
+    case "curvedconnector2": return S.curvedConnector2;
+    case "curvedconnector3": return S.curvedConnector3;
+    case "curvedconnector4": return S.curvedConnector4;
+    case "curvedconnector5": return S.curvedConnector5;
+
+    default: return S.rect; // Safe fallback
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// SHADOW HELPER
+// ─────────────────────────────────────────────────────────────
+
+function shadowOf(shadow: any, deck: DeckSpec) {
+  if (typeof shadow === "string") {
+    const preset = deck.tokens?.shadow?.[shadow];
+    if (!preset) return undefined;
+    return {
+      type: "outer", blur: preset.blur, distance: preset.distance,
+      angle: preset.angle, color: hex(preset.color, "000000"), opacity: (preset.opacity ?? 12) / 100,
+    };
+  }
+  if (shadow && typeof shadow === "object") {
+    return {
+      type: shadow.type ?? "outer",
+      blur: shadow.blur ?? 24,
+      distance: shadow.distance ?? 8,
+      angle: shadow.angle ?? 90,
+      color: hex(shadow.color, "000000"),
+      opacity: (shadow.opacity ?? 12) / 100,
+    };
+  }
+  return undefined;
+}
+
+// ─────────────────────────────────────────────────────────────
+// MAIN BUILD LOGIC
+// ─────────────────────────────────────────────────────────────
+
 export interface BuildResult {
   file: string;
   specFile: string;
@@ -61,12 +258,21 @@ export async function buildDeck(deck: DeckSpec, outDir: string, basename?: strin
 
   for (const slideSpec of deck.slides) {
     const slide = pptx.addSlide();
+    
+    // Slide Background
     if (slideSpec.background) {
       const bg = slideSpec.background;
       if (bg.type === "image") {
         const p = assetPath(deck, bg.assetId, bg.path);
         if (p) slide.background = { path: p };
         else warnings.push(`${slideSpec.id}: background image missing (${bg.assetId ?? bg.path ?? "?"})`);
+      } else if (bg.type === "gradient" && bg.stops) {
+        slide.background = { 
+          fill: { 
+            type: "gradient", 
+            stops: bg.stops.map((s: any) => ({ position: s[1], color: hex(s[0]) })) 
+          } 
+        };
       } else if (bg.color) {
         slide.background = { color: hex(bg.color, "FFFFFF") };
       } else if (bg.stops?.[0]) {
@@ -110,7 +316,9 @@ function addObject(pptx: any, slide: any, deck: DeckSpec, obj: ObjectSpec, env: 
 
   if (obj.type === "text") {
     const t: any = obj.text ?? {};
-    const fill = t.fill ?? obj.fill;
+    const fill = buildFill(obj.fill);
+    const line = buildLine(obj.line);
+    
     const opts: any = {
       ...base,
       fontFace: t.fontFamily ?? env.bodyFont,
@@ -128,11 +336,11 @@ function addObject(pptx: any, slide: any, deck: DeckSpec, obj: ObjectSpec, env: 
       fit: "none",
       altText: obj.altText || t.value || "Text",
     };
-    if (obj.fill?.type === "solid" && obj.fill.color) {
-      opts.fill = { color: hex(obj.fill.color) };
-    }
-    if (obj.line?.color) opts.line = { color: hex(obj.line.color), width: obj.line.width ?? 0.75 };
+    
+    if (obj.fill?.type !== "none") opts.fill = fill;
+    if (obj.line) opts.line = line;
     if (obj.effects?.shadow) opts.shadow = shadowOf(obj.effects.shadow, deck);
+    
     if (t.paragraphs?.length) {
       const runs: any[] = [];
       for (const p of t.paragraphs) {
@@ -241,50 +449,19 @@ function addObject(pptx: any, slide: any, deck: DeckSpec, obj: ObjectSpec, env: 
     return;
   }
 
+  // FALLBACK: SHAPES
   const shapeType = shapeOf(pptx, obj.shape ?? (obj.type === "line" ? "line" : "rect"));
+  const fillOpt = buildFill(obj.fill);
+  const lineOpt = buildLine(obj.line);
+  
   const opt: any = {
     ...base,
-    fill: obj.fill?.type === "none" ? { type: "none" } : { color: hex(obj.fill?.color, "E8EDF5") },
-    line: obj.line?.color ? { color: hex(obj.line.color), width: obj.line.width ?? 1, dashType: obj.line.dash ?? "solid" } : { type: "none" },
+    fill: fillOpt,
+    line: lineOpt,
     altText: obj.altText || (obj.decorative ? "" : "Shape"),
   };
-  if (obj.fill?.type === "solid" && obj.fill.alpha !== undefined) opt.fill.transparency = 100 - obj.fill.alpha;
+  
   if (obj.effects?.shadow) opt.shadow = shadowOf(obj.effects.shadow, deck);
-  if (obj.line?.endArrow) opt.line.endArrowType = obj.line.endArrow;
+  
   slide.addShape(shapeType, opt);
-}
-
-function shapeOf(pptx: any, shape: string) {
-  const S = pptx.ShapeType;
-  switch (shape) {
-    case "roundRect": return S.roundRect;
-    case "ellipse": return S.ellipse;
-    case "triangle": return S.triangle;
-    case "line": return S.line;
-    case "arrow": return S.rightArrow;
-    case "freeform": return S.freeform;
-    default: return S.rect;
-  }
-}
-
-function shadowOf(shadow: any, deck: DeckSpec) {
-  if (typeof shadow === "string") {
-    const preset = deck.tokens?.shadow?.[shadow];
-    if (!preset) return undefined;
-    return {
-      type: "outer", blur: preset.blur, distance: preset.distance,
-      angle: preset.angle, color: hex(preset.color, "000000"), opacity: (preset.opacity ?? 12) / 100,
-    };
-  }
-  if (shadow && typeof shadow === "object") {
-    return {
-      type: shadow.type ?? "outer",
-      blur: shadow.blur ?? 24,
-      distance: shadow.distance ?? 8,
-      angle: shadow.angle ?? 90,
-      color: hex(shadow.color, "000000"),
-      opacity: (shadow.opacity ?? 12) / 100,
-    };
-  }
-  return undefined;
 }

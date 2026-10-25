@@ -6,6 +6,19 @@ description: Router for 24 slide archetypes. Read when choosing slide type, know
 
 # Slide types — 24 archetype
 
+## Archetype Fulfillment (Strict Rules)
+
+Do NOT create empty templates. Every archetype has mandatory blocks. If the content does not provide enough for these blocks, invent relevant context or merge the slide. 
+
+1. **cover**: MUST have Title, Subtitle (1 sentence), Metadata (Author/Date), and at least 1 decorative accent (e.g., colored bar or logo). Never create a cover with just a title.
+2. **agenda**: MUST have at least 4 list items. Each item needs a number (01, 02...) and a 3–5 word title. Do not use empty placeholders.
+3. **section-divider**: MUST have a section number, a section title, and a 1-sentence description of what will be covered in this section.
+4. **text-and-bullets**: MUST have a Title, 3–5 bullet points (each 10–15 words), and a Source/Footer block (even if it just says "Nội bộ" or the topic name).
+5. **comparison / matrix-2x2**: MUST have at least 2 columns with 3 distinct comparison criteria per column.
+6. **process / timeline / roadmap**: MUST have 3–6 steps. Each step needs a title and a 1-sentence description.
+7. **card-grid**: MUST have 3–6 cards. Each card needs an icon/shape, a title, and a description.
+8. **conclusion-cta**: MUST have 3 key takeaways (bullets) and 1 specific Call-to-Action block.
+
 ## Quick pick table
 
 | Type | When to use | Tier | Objects |

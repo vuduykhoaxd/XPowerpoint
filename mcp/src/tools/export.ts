@@ -1,6 +1,5 @@
 import { sessions } from "../session.js";
 import { z } from "zod";
-import { existsSync, copyFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import type { ToolDef } from "../types.js";
@@ -11,6 +10,7 @@ import { renderSlides, exportVideo, applyMotion, comAvailable } from "../engine/
 import { fullReport, writeReport, summarize } from "../quality/report.js";
 import { validateLicenses } from "../research/license.js";
 import { outDir, safeName, ensureDir } from "../utils/paths.js";
+import { existsSync, copyFileSync, writeFileSync, mkdirSync, unlinkSync } from "node:fs";
 
 async function gate(s: any, force = false) {
   assertApproved(s, "export");
@@ -35,19 +35,45 @@ async function ensureBuilt(s: any) {
 
 const exportPptx = (): ToolDef => ({
   name: "export_pptx",
-  description: "Build the editable .pptx (gates enforced).",
+  description: "Build the editable .pptx (gates enforced). Auto-applies motion if brief requires it.",
   inputSchema: S({ path: z.string().optional(), force: z.boolean().optional(), applyMotion: z.boolean().optional() }),
   handler: async (args) => {
     const s = sessionOf({ sessions }, args);
     const g = await gate(s, args.force);
     const built = await buildDeck(s.spec, outDir("decks"), args.path ? path.basename(args.path, ".pptx") : s.spec.meta.title ?? "deck");
+    
     let file = built.file;
     if (args.path) { ensureDir(path.dirname(path.resolve(args.path))); copyFileSync(file, args.path); file = path.resolve(args.path); }
-    if (args.applyMotion) {
+    
+    // ===== ÉP BUỘC ANIMATION (HARD-BLOCK) =====
+    // Nếu brief yêu cầu useEffects, BỎ QUA args.applyMotion, ép buộc phải chạy motion
+    const brief: any = s.spec.brief ?? {};
+    const shouldApplyMotion = brief.useEffects === true || args.applyMotion === true;
+
+    if (shouldApplyMotion) {
+      // Dùng file tạm để tránh lỗi ghi đè file đang mở của PowerPoint COM
       const out = file.replace(/\.pptx$/i, "-motion.pptx");
-      const r = await applyMotion(file, s.spec.slides.map((sl: any, i: number) => ({ index: i + 1, transition: sl.transition, sequence: sl.motion?.sequence ?? [] })), out);
-      if (r.ok) { file = out; if (r.failures?.length) built.warnings.push("Motion partial: " + r.failures.join("; ")); } else built.warnings.push("Motion not applied: " + (r.message ?? "COM unavailable"));
+      const r = await applyMotion(
+        file, 
+        s.spec.slides.map((sl: any, i: number) => ({ 
+          slideIndex: i + 1, 
+          transition: sl.transition, 
+          sequence: sl.motion?.sequence ?? [] 
+        })), 
+        out
+      );
+      
+      if (r.ok && existsSync(out)) { 
+        copyFileSync(out, file); // Ghi đè file gốc bằng file đã có animation
+        try { unlinkSync(out); } catch {} // Xóa file tạm
+        if (r.failures?.length) built.warnings.push("Motion partial: " + r.failures.join("; "));
+        else built.warnings.push(`Animation applied to ${s.spec.slides.length} slide(s).`);
+      } else {
+        built.warnings.push("Motion not applied: " + (r.message ?? "COM unavailable"));
+      }
     }
+    // ===== KẾT THÚC ÉP BUỘC =====
+
     s.filePath = file;
     s.dirty = false;
     const report = writeReport({ ...g.report, forced: g.forced }, outDir("reports"), `qa-${s.id}.json`);

@@ -107,37 +107,28 @@ const layoutReflow = (): ToolDef => ({
 
 const layoutCollision = (): ToolDef => ({
   name: "layout_collision",
-  description: "Detect overlaps; with resolve:true push objects down/right until clear.",
+  description: "Detect overlaps. Auto-resolve is DISABLED. You must fix the layout manually.",
   inputSchema: S({ slideId: z.union([z.string(), z.number()]).optional(), resolve: z.boolean().optional(), gap: z.number().optional() }),
   handler: (args) => {
     const s = sessionOf({ sessions }, args);
+    
+    // CHẶN CỨNG: Không cho phép AI dùng resolve=true
+    if (args.resolve === true) {
+      throw new XPError(
+        "E_INVALID_INPUT", 
+        "Auto-resolve is disabled. You must fix the layout manually using the grid (xp-composition). Do not push objects to arbitrary positions."
+      );
+    }
+
     const slides = args.slideId != null ? [slideOf(s, args)] : s.spec.slides;
     const found = checkAllOverlap(s.spec).filter((v) => slides.some((sl) => sl.id === v.slideId));
-    const moved: any[] = [];
-    if (args.resolve) {
-      sessions.mutate(s, () => {
-        for (const slide of slides) {
-          const area = safeArea(s.spec);
-          const sorted = [...slide.objects].sort((a, b) => a.geometry.y - b.geometry.y || a.geometry.x - b.geometry.x);
-          for (let i = 0; i < sorted.length; i++) {
-            for (let j = 0; j < i; j++) {
-              const a = sorted[j], b = sorted[i];
-              if (a.intentionalOverlap || b.intentionalOverlap || a.decorative || b.decorative || a.locked) continue;
-              const overlap = !(a.geometry.x + a.geometry.w <= b.geometry.x || b.geometry.x + b.geometry.w <= a.geometry.x ||
-                a.geometry.y + a.geometry.h <= b.geometry.y || b.geometry.y + b.geometry.h <= a.geometry.y);
-              if (!overlap) continue;
-              const ny = a.geometry.y + a.geometry.h + (args.gap ?? 0.1);
-              if (ny + b.geometry.h <= area.y + area.h) { b.geometry.y = ny; moved.push(b.id); }
-              else {
-                const nx = a.geometry.x + a.geometry.w + (args.gap ?? 0.1);
-                if (nx + b.geometry.w <= area.x + area.w) { b.geometry.x = nx; moved.push(b.id); }
-              }
-            }
-          }
-        }
-      });
-    }
-    return okData({ overlaps: found, moved });
+    
+    // Trả về overlaps nhưng moved rỗng
+    return okData({ 
+      overlaps: found, 
+      moved: [], 
+      warning: "Use layout_grid and layout_measure to fix overlaps manually." 
+    });
   },
 });
 

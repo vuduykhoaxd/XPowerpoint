@@ -50,6 +50,100 @@ function itemsOf(params: P, fallback: any[] = []): any[] {
   return raw.map((it: any) => typeof it === "string" ? { title: it } : it);
 }
 
+// ─────────────────────────────────────────────────────────────
+// GEOMETRIC GENERATORS (Bộ công cụ tạo Decor)
+// ─────────────────────────────────────────────────────────────
+
+function createHoneycomb(objs: ObjectSpec[], startX: number, startY: number, cols: number, rows: number, size: number, color: string, opacity: number) {
+  const hexW = size;
+  const hexH = size * 0.866;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = startX + c * hexW * 0.75;
+      const y = startY + r * hexH + (c % 2 === 1 ? hexH / 2 : 0);
+      objs.push(shape(`deco/hex-${r}-${c}`, x, y, hexW, hexH, 
+        { type: "solid", color: color, alpha: opacity }, 
+        { shape: "hexagon", decorative: true, altText: "" }
+      ));
+    }
+  }
+}
+
+function createShatter(objs: ObjectSpec[], W: number, H: number, count: number, color1: string, color2: string) {
+  const shapes = ["triangle", "rtriangle", "diamond", "pentagon"];
+  for (let i = 0; i < count; i++) {
+    const size = 3 + Math.random() * 4;
+    const x = Math.random() * W - size / 2;
+    const y = Math.random() * H - size / 2;
+    const isPrimary = i % 2 === 0;
+    objs.push(shape(`deco/shatter-${i}`, x, y, size, size,
+      { type: "solid", color: isPrimary ? color1 : color2, alpha: 10 + Math.random() * 15 },
+      { shape: shapes[i % shapes.length], decorative: true, altText: "", extra: { geometry: { x, y, w: size, h: size, rotation: Math.random() * 360 } } } as any
+    ));
+  }
+}
+
+function createDotGrid(objs: ObjectSpec[], startX: number, startY: number, cols: number, rows: number, spacing: number, color: string, opacity: number) {
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      objs.push(shape(`deco/dot-${r}-${c}`, startX + c * spacing, startY + r * spacing, 0.08, 0.08,
+        { type: "solid", color: color, alpha: opacity },
+        { shape: "ellipse", decorative: true, altText: "" }
+      ));
+    }
+  }
+}
+
+function createWaves(objs: ObjectSpec[], W: number, H: number, color: string) {
+  for (let i = 0; i < 3; i++) {
+    objs.push(shape(`deco/wave-${i}`, -1, H - 3 + i * 1.5, W + 2, 3,
+      { type: "solid", color: color, alpha: 15 },
+      { shape: "wave", decorative: true, altText: "" }
+    ));
+  }
+}
+
+function createGlassBlobs(objs: ObjectSpec[], W: number, H: number, color1: string, color2: string) {
+  objs.push(shape("deco/blob-1", -3, -3, 10, 10, { type: "gradient", stops: [[color1, 0], [color1, 100]], angle: 45 }, { shape: "ellipse", decorative: true, altText: "", extra: { fill: { type: "gradient", alpha: 15 } } } as any));
+  objs.push(shape("deco/blob-2", W - 6, H - 6, 9, 9, { type: "solid", color: color2, alpha: 12 }, { shape: "ellipse", decorative: true, altText: "" }));
+  objs.push(shape("deco/blob-3", W/2 - 2, -1, 5, 5, { type: "solid", color: color1, alpha: 20 }, { shape: "cloud", decorative: true, altText: "" }));
+}
+
+// ─────────────────────────────────────────────────────────────
+// GOLDEN MATH (Tính toán lưới theo chuẩn 1.196 slide)
+// ─────────────────────────────────────────────────────────────
+
+// Bảng số liệu vàng cho Card Grid (Pitch = Col + Gutter)
+const PITCH_MAP: Record<number, { pitch: number, ratio: number }> = {
+  4: { pitch: 0.218, ratio: 0.29 }, // 4 cột là chuẩn nhất
+  5: { pitch: 0.190, ratio: 0.30 },
+  6: { pitch: 0.152, ratio: 0.17 },
+  8: { pitch: 0.115, ratio: 0.34 },
+};
+
+function getCardGrid(W: number, N: number, topY: number, bottomY: number) {
+  // Nếu N=2 hoặc 3, tự động đẩy lên N=4 (theo khuyến nghị vì lưới 2,3 không ổn định)
+  const N_actual = (N === 2 || N === 3) ? 4 : N;
+  const cfg = PITCH_MAP[N_actual] || PITCH_MAP[4];
+  
+  const pitch = W * cfg.pitch;
+  const colW = pitch / (1 + cfg.ratio);
+  const gutter = pitch - colW;
+  const span = N_actual * colW + (N_actual - 1) * gutter;
+  const marginX = (W - span) / 2; // Lề trái = lề phải
+  
+  return {
+    colW, gutter, marginX, pitch,
+    xPositions: Array.from({ length: N_actual }, (_, i) => marginX + i * pitch),
+    topY,
+    cardH: (bottomY - topY) // Sẽ chia cho số hàng sau
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// MAIN COMPOSER
+// ─────────────────────────────────────────────────────────────
+
 export function composeArchetype(deck: DeckSpec, slide: SlideSpec, type: string, params: P = {}): ObjectSpec[] {
   const { c, f, s } = tokens(deck);
   const area = safeArea(deck);
@@ -68,10 +162,10 @@ export function composeArchetype(deck: DeckSpec, slide: SlideSpec, type: string,
   const colorLine = c.line ?? "#D7DEE8";
   const margin = area.x;
   const contentW = area.w;
+  const contentBottom = H - 0.6; // Chừa chỗ cho footer
 
-  const titleY = 0.45;
   const addTitle = (size?: number, w = contentW) => {
-    objs.push(text("content/title", title, margin, titleY, w, 0.72, {
+    objs.push(text("content/title", title, margin, 0.45, w, 0.72, {
       size: size ?? s.h1 ?? 34, font: fontH, color: colorText, bold: true, valign: "middle", role: "title", lineSpacing: 1.05,
     }));
   };
@@ -87,10 +181,27 @@ export function composeArchetype(deck: DeckSpec, slide: SlideSpec, type: string,
   };
 
   switch (type) {
+    case "decor-modern": {
+      const style = params.style ?? "glass";
+      switch (style) {
+        case "honeycomb": createHoneycomb(objs, -2, -2, 10, 8, 2.2, colorPrimary, 15); break;
+        case "shatter": createShatter(objs, W, H, 15, colorPrimary, colorAccent); break;
+        case "dots": createDotGrid(objs, 1, 1, 20, 15, 0.5, colorPrimary, 20); break;
+        case "waves": createWaves(objs, W, H, colorPrimary); break;
+        case "glass":
+        default: createGlassBlobs(objs, W, H, colorPrimary, colorAccent); break;
+      }
+      addTitle(s.display ?? 48);
+      addSubtitle(2.2);
+      objs.push(text("content/body", params.body ?? "Nội dung slide với background phức tạp.", margin, 3.0, contentW * 0.7, 2.0, { size: 18, color: colorText, role: "body" }));
+      addSource();
+      return objs;
+    }
+
     case "cover": {
       objs.push(shape("deco/accent-bar", margin, 2.05, 0.09, 2.6, { type: "solid", color: colorAccent }, { decorative: true, altText: "Accent bar" }));
       objs.push(text("content/title", title, margin + 0.3, 1.9, contentW * 0.72, 1.9, {
-        size: s.display ?? 58, font: f.display ?? fontH, color: colorText, bold: true, lineSpacing: 1.0, role: "title",
+        size: s.display ?? 58, font: f.display ?? fontH, color: colorText, bold: true, lineSpacing: 1.0, role: "title", valign: "middle",
       }));
       if (subtitle) objs.push(text("content/subtitle", subtitle, margin + 0.3, 3.95, contentW * 0.62, 0.7, {
         size: s.h2 ?? 22, font: fontB, color: colorMuted, role: "subtitle",
@@ -172,24 +283,35 @@ export function composeArchetype(deck: DeckSpec, slide: SlideSpec, type: string,
       addSubtitle();
       const items = itemsOf(params, ["Ý 1", "Ý 2", "Ý 3", "Ý 4"]).slice(0, 6);
       const n = Math.max(1, items.length);
-      const cols = n <= 3 ? n : n === 4 ? 4 : 3;
-      const rows = Math.ceil(n / cols);
-      const gap = 0.2;
-      const cw = (contentW - gap * (cols - 1)) / cols;
       const top = subtitle ? 1.7 : 1.4;
-      const ch = (7.0 - top - gap * (rows - 1)) / rows;
+      
+      // Áp dụng Golden Math
+      const grid = getCardGrid(W, n, top, contentBottom);
+      const rowsCount = Math.ceil(n / grid.xPositions.length);
+      const rowH = (contentBottom - top - (rowsCount - 1) * 0.24) / rowsCount; // 0.24 is module gap
+
+      const iconShape = params.iconShape ?? "ellipse"; 
+      const iconColor = params.iconColor ?? colorAccent;
+
       items.forEach((it: any, i: number) => {
-        const cx = margin + (i % cols) * (cw + gap);
-        const cy = top + Math.floor(i / cols) * (ch + gap);
+        const colIdx = i % grid.xPositions.length;
+        const rowIdx = Math.floor(i / grid.xPositions.length);
+        const cx = grid.xPositions[colIdx];
+        const cy = top + rowIdx * (rowH + 0.24);
+        
         const id = String(i + 1).padStart(2, "0");
-        objs.push(shape(`content/card-${id}`, cx, cy, cw, ch, { type: "solid", color: colorSurface }, {
+        objs.push(shape(`content/card-${id}`, cx, cy, grid.colW, rowH, { type: "solid", color: colorSurface }, {
           line: { color: colorLine, width: 0.75 }, altText: `Card ${it.title ?? i + 1}`,
         }));
-        if (params.icon !== false) objs.push(shape(`deco/card-icon-${id}`, cx + 0.18, cy + 0.18, 0.42, 0.42, { type: "solid", color: colorAccent }, { shape: "ellipse", decorative: true, altText: "" }));
-        objs.push(text(`content/card-title-${id}`, it.title ?? `Ý ${i + 1}`, cx + 0.18, cy + 0.72, cw - 0.36, 0.42, {
+        
+        const pad = Math.min(0.8 * (W / 100), 0.25 * grid.colW);
+        
+        if (params.icon !== false) objs.push(shape(`deco/card-icon-${id}`, cx + pad, cy + pad, 0.42, 0.42, { type: "solid", color: iconColor }, { shape: iconShape, decorative: true, altText: "" }));
+        
+        objs.push(text(`content/card-title-${id}`, it.title ?? `Ý ${i + 1}`, cx + pad, cy + pad + 0.54, grid.colW - (pad*2), 0.42, {
           size: 16, color: colorText, bold: true, role: "title",
         }));
-        if (it.body) objs.push(text(`content/card-body-${id}`, it.body, cx + 0.18, cy + 1.14, cw - 0.36, ch - 1.28, {
+        if (it.body) objs.push(text(`content/card-body-${id}`, it.body, cx + pad, cy + pad + 0.96, grid.colW - (pad*2), rowH - 1.1, {
           size: 12, color: colorMuted, role: "body", lineSpacing: 1.3,
         }));
       });
@@ -201,11 +323,12 @@ export function composeArchetype(deck: DeckSpec, slide: SlideSpec, type: string,
       addSubtitle();
       const opts = (params.options ?? itemsOf(params, [{ title: "Phương án A" }, { title: "Phương án B" }])).slice(0, 3);
       const n = Math.max(1, opts.length);
-      const gap = 0.2;
-      const cw = (contentW - gap * (n - 1)) / n;
+      // Comparison coi như N=4, chia đôi
+      const cw = (contentW - 0.3) / 2; 
       const top = subtitle ? 1.7 : 1.4;
       opts.forEach((o: any, i: number) => {
-        const cx = margin + i * (cw + gap);
+        if (i > 1) return; // Chỉ lấy 2
+        const cx = margin + i * (cw + 0.3);
         const isHi = params.highlight === i;
         objs.push(shape(`content/option-${i}`, cx, top, cw, 5.2, { type: "solid", color: isHi ? colorSurface : "#FFFFFF" }, {
           line: { color: isHi ? colorAccent : colorLine, width: isHi ? 1.5 : 0.75 }, altText: o.title ?? `Phương án ${i + 1}`,
