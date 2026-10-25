@@ -156,26 +156,26 @@ MIT for this repository. Bundled or downloaded assets keep their own licenses; s
 MIT cho repository này. Asset bundle hoặc tải về giữ license riêng; xem
 `THIRD-PARTY-NOTICES.md` và `skill/xp-legal/SKILL.md`.
 
-## 🚀 1ClickSetup.bat
+~~## 🚀 1ClickSetup.bat~~
 
-A Windows-friendly one-click setup script is included at the repo root:
+~~A Windows-friendly one-click setup script is included at the repo root:~~
 
-```
-.\1ClickSetup.bat
-```
+
+~~.\1ClickSetup.bat~~
+
 
 It verifies Node.js, installs MCP dependencies, builds TypeScript, installs Python
 requirements, and runs the smoke test.
 
 ---
 
-## 🚀 1ClickSetup.bat
+~~## 🚀 1ClickSetup.bat~~
 
-Script setup 1 click cho Windows có sẵn tại thư mục gốc:
+~~Script setup 1 click cho Windows có sẵn tại thư mục gốc:~~
 
-```
-.\1ClickSetup.bat
-```
+
+~~.\1ClickSetup.bat~~
+
 
 Kiểm tra Node.js, cài dependency MCP, build TypeScript, cài Python requirements,
 chạy smoke test.
