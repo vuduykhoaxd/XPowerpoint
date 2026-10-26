@@ -59,7 +59,7 @@ Fail any gate -> **fix that gate**, do not jump to export.
 | render drift | fix DPI/zoom, disable HW accel |
 
 ## Do not do
-
+ 
 - Build before brief is locked.
 - Export when gate [5]–[9] fail.
 - Local fix that breaks neighbors (must re-run solver).
