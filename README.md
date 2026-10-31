@@ -1,4 +1,4 @@
-# XPowerpoint v2.1.1
+# XPowerpoint v2.1.1 -> pptx-motion-studio
 
 Full-control PowerPoint skill suite: 32 skills, an MCP server with 196 tools, and a
 Windows COM / python-pptx / OOXML engine. Builds anything from an 8-object cover to a
